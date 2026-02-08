@@ -1,0 +1,22 @@
+{
+    "$schema": "https://json-schema.org/draft-07/schema#",
+    "title": "Login Data Contract",
+    "type": "object",
+    "properties": {
+        "CampusID": {
+            "type": "string",
+            "description": "The unique identifier for the campus faculty members and students."
+        },
+        "password": {
+            "type": "string",
+            "minLength": 8,
+            "description": "The password for the campus login."
+        },
+        "rememberMe": {
+            "type": "boolean",
+            "default": false,
+            "description": "Indicates whether the user wants to be remembered on the device."
+        }
+    },
+    "required": ["CampusID", "password"]
+}
