@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from datetime import datetime
-import bcrypt
+
 from database_connection import DatabaseConnection
 
 app = Flask(__name__)
@@ -34,15 +34,7 @@ def login():
             }), 400
 
         # Look up user in the database
-        try:
-            campus_id_int = int(campus_id)
-        except (ValueError, TypeError):
-            return jsonify({
-                "status": "error",
-                "message": "Campus ID must be a valid number"
-            }), 400
-
-        user = db.get_user_by_campus_id(campus_id_int)
+        user = db.get_user_by_campus_id(campus_id)
 
         if not user:
             return jsonify({
@@ -50,11 +42,8 @@ def login():
                 "message": "User not found"
             }), 401
 
-        # Verify password against the stored bcrypt hash
-        stored_hash = user['password'].encode('utf-8')
-        password_bytes = password.encode('utf-8')
-
-        if not bcrypt.checkpw(password_bytes, stored_hash):
+        # Verify password against stored password (plain text comparison)
+        if password != user['password']:
             return jsonify({
                 "status": "error",
                 "message": "Invalid password"
@@ -66,7 +55,7 @@ def login():
             "message": "Login successful",
             "timestamp": datetime.now().isoformat(),
             "user": {
-                "campusID": campus_id_int,
+                "campusID": campus_id,
                 "accessLevel": user['access_level'],
                 "rememberMe": remember_me
             }

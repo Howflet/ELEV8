@@ -37,7 +37,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print()
 
-    test("Invalid campus ID → 401", "9999", "anypassword123", 401)
-    test("Valid campus ID 1001 + wrong password → 401", "1001", "wrongpassword123", 401)
-    test("Missing password (too short) → 400", "1001", "short", 400)
-    test("Non-numeric campus ID → 400", "abc", "anypassword123", 400)
+    test("Invalid campus ID → 401", "nonexistent", "anypassword123", 401)
+    test("Valid campus ID bclark11 + wrong password → 401", "bclark11", "wrongpassword123", 401)
+    test("Missing password (too short) → 400", "bclark11", "short", 400)
+    test("Empty campus ID → 400", "", "anypassword123", 400)

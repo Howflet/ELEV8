@@ -77,7 +77,7 @@ DROP TABLE IF EXISTS `users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `users` (
-  `campus_id` int NOT NULL,
+  `campus_id` VARCHAR(50) NOT NULL,
   `password` varchar(255) NOT NULL,
   `access_level` int DEFAULT NULL,
   PRIMARY KEY (`campus_id`)
