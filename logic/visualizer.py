@@ -1,6 +1,4 @@
-import sys
 import time
-from io import StringIO
 
 from rich import box
 from rich.console import Console, Group
@@ -15,27 +13,13 @@ from simulation import Simulation
 
 
 class Visualizer:
-    def __init__(self, simulation, passengers):
+    def __init__(self, simulation):
         self.sim = simulation
-        self.passengers = passengers
-        self.log_lines = []
         self.console = Console()
 
-    def _capture_tick(self):
-        """Transition transient statuses, then run one sim tick capturing print output."""
-        for p in self.passengers:
-            if p.status == "boarding":
-                p.status = "riding"
-            elif p.status == "leaving":
-                p.status = "arrived"
-
-        old_stdout = sys.stdout
-        sys.stdout = buf = StringIO()
-        self.sim.tick()
-        sys.stdout = old_stdout
-        lines = [l for l in buf.getvalue().splitlines() if l.strip()]
-        self.log_lines.extend(lines)
-        self.log_lines = self.log_lines[-12:]
+    def _get_passengers(self):
+        with self.sim._id_lock:
+            return list(self.sim._all_passengers.values())
 
     def _passenger_status(self, passenger):
         STATUS_COLORS = {
@@ -50,6 +34,7 @@ class Visualizer:
     def _render(self):
         building = self.sim.building
         elevators = building.elevators
+        passengers = self._get_passengers()
 
         # --- Building grid ---
         grid = Table(box=box.SIMPLE_HEAD, show_header=True, padding=(0, 1))
@@ -71,8 +56,8 @@ class Visualizer:
                     cells.append("")
 
             waiting = [
-                p for p in self.passengers
-                if self._passenger_status(p)[0] == "Waiting" and p.current_floor == floor
+                p for p in passengers
+                if p.status == "waiting" and p.current_floor == floor
             ]
             waiting_str = "  ".join(
                 f"[yellow]P{p.passenger_id}→{p.destination_floor}[/yellow]" for p in waiting
@@ -87,7 +72,7 @@ class Visualizer:
         pax_table.add_column("To",     width=6, justify="center")
         pax_table.add_column("Status", width=10)
 
-        for p in self.passengers:
+        for p in passengers:
             status, color = self._passenger_status(p)
             pax_table.add_row(
                 f"P{p.passenger_id}",
@@ -97,7 +82,9 @@ class Visualizer:
             )
 
         # --- Event log ---
-        log_text = "\n".join(self.log_lines[-10:]) or "[dim](no events yet)[/dim]"
+        with self.sim._log_lock:
+            log_lines = list(self.sim._log_lines[-10:])
+        log_text = "\n".join(log_lines) or "[dim](no events yet)[/dim]"
 
         return Group(
             Panel(
@@ -110,15 +97,15 @@ class Visualizer:
         )
 
     def _all_arrived(self):
-        return all(p.status in ("arrived", "leaving") for p in self.passengers)
+        passengers = self._get_passengers()
+        return len(passengers) > 0 and all(p.status in ("arrived", "leaving") for p in passengers)
 
-    def run(self, max_ticks=None):
+    def run(self, max_ticks=None, stop_when_done=True):
+        """Observe and render the simulation. The sim must already be running in a background thread."""
         with Live(self._render(), refresh_per_second=4, console=self.console) as live:
-            self.sim.running = True
-            while self.sim.running:
-                self._capture_tick()
+            while True:
                 live.update(self._render())
-                if self._all_arrived():
+                if stop_when_done and self._all_arrived():
                     self.sim.running = False
                     break
                 if max_ticks and self.sim.tick_count >= max_ticks:
@@ -129,5 +116,3 @@ class Visualizer:
         self.console.print(
             f"\n[bold green]Simulation complete — {self.sim.tick_count} ticks.[/bold green]"
         )
-
-

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELEV8 Client</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --dim: #7d8590;
+      --blue: #58a6ff;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --cyan: #39c5cf;
+      --orange: #f78166;
+      --elev-bg: #1c2128;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Consolas', 'Cascadia Code', 'SF Mono', monospace;
+      font-size: 13px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    header h1 {
+      font-size: 16px;
+      color: var(--blue);
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    .page-label {
+      font-size: 12px;
+      color: var(--dim);
+    }
+
+    .nav-link {
+      margin-left: auto;
+      color: var(--dim);
+      text-decoration: none;
+      font-size: 12px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .nav-link:hover { color: var(--text); border-color: var(--dim); }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--dim);
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--dim);
+    }
+
+    .form-group input,
+    .form-group select {
+      background: var(--elev-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 8px 12px;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.15s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--blue);
+    }
+
+    .btn {
+      width: 100%;
+      background: #1c3a5e;
+      border: 1px solid var(--blue);
+      border-radius: 4px;
+      color: var(--blue);
+      padding: 10px 16px;
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 4px;
+    }
+
+    .btn:hover  { background: #234b7a; }
+    .btn:active { background: #1a2f4a; }
+
+    .feedback {
+      margin-top: 14px;
+      font-size: 12px;
+      min-height: 20px;
+      text-align: center;
+    }
+    .feedback-ok  { color: var(--green); }
+    .feedback-err { color: var(--orange); }
+
+    /* Request history */
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--elev-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 12px;
+      animation: fadein 0.25s ease;
+    }
+
+    @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+    .history-item .pid { color: var(--blue); font-weight: 600; }
+    .history-item .route { color: var(--dim); }
+    .history-item .route span { color: var(--text); }
+
+    .status-badge {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .status-waiting  { background: #d2992222; color: var(--yellow); border: 1px solid #d2992244; }
+    .status-boarding { background: #3fb95022; color: var(--green);  border: 1px solid #3fb95044; }
+    .status-riding   { background: #39c5cf22; color: var(--cyan);   border: 1px solid #39c5cf44; }
+    .status-leaving  { background: #f7816622; color: var(--orange); border: 1px solid #f7816644; }
+    .status-arrived  { background: #3fb95011; color: #7ee787;       border: 1px solid #3fb95033; }
+
+    .cancel-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--dim);
+      font-family: inherit;
+      font-size: 11px;
+      padding: 2px 8px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .cancel-btn:hover { color: var(--orange); border-color: var(--orange); }
+
+    .history-empty { color: var(--dim); font-size: 11px; font-style: italic; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>ELEV8</h1>
+  <span class="page-label">Client Panel</span>
+  <a href="/sim" class="nav-link">← Simulator</a>
+</header>
+
+<main>
+
+  <!-- Request form -->
+  <div class="card">
+    <div class="card-title">Request Elevator</div>
+    <form id="request-form" onsubmit="submitRequest(event)">
+      <div class="form-group">
+        <label>From Floor</label>
+        <input type="number" id="from-floor" min="0" value="0" required>
+      </div>
+      <div class="form-group">
+        <label>To Floor</label>
+        <input type="number" id="to-floor" min="0" value="5" required>
+      </div>
+      <div class="form-group">
+        <label>Access Level</label>
+        <select id="access-level">
+          <option value="1">Level 1</option>
+          <option value="2">Level 2</option>
+          <option value="3">Level 3</option>
+        </select>
+      </div>
+      <button type="submit" class="btn">Call Elevator</button>
+      <div class="feedback" id="request-feedback"></div>
+    </form>
+  </div>
+
+  <!-- Active requests -->
+  <div class="card">
+    <div class="card-title">My Requests</div>
+    <div class="history-list" id="history-list">
+      <span class="history-empty">No requests yet</span>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // Track passenger IDs submitted from this page: pid -> { from, to }
+  const myRequests = new Map();
+
+  const STATUS_CLASS = {
+    waiting:  'status-waiting',
+    boarding: 'status-boarding',
+    riding:   'status-riding',
+    leaving:  'status-leaving',
+    arrived:  'status-arrived',
+  };
+
+  // Populate floor input max from sim state once
+  async function initFloorRange() {
+    try {
+      const res = await fetch('/api/elevator/state');
+      if (!res.ok) return;
+      const json = await res.json();
+      const max = json.state.floors - 1;
+      document.getElementById('from-floor').max = max;
+      document.getElementById('to-floor').max = max;
+    } catch (_) {}
+  }
+
+  async function submitRequest(e) {
+    e.preventDefault();
+    const fromFloor = parseInt(document.getElementById('from-floor').value);
+    const toFloor   = parseInt(document.getElementById('to-floor').value);
+    const access    = parseInt(document.getElementById('access-level').value);
+    const feedback  = document.getElementById('request-feedback');
+
+    try {
+      const res = await fetch('/api/elevator/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_floor: fromFloor, destination_floor: toFloor, access_level: access }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        feedback.className = 'feedback feedback-ok';
+        feedback.textContent = `Queued — Passenger ID: ${json.passenger_id}`;
+        myRequests.set(json.passenger_id, { from: fromFloor, to: toFloor });
+        renderHistory();
+      } else {
+        feedback.className = 'feedback feedback-err';
+        feedback.textContent = json.message || 'Error';
+      }
+    } catch (_) {
+      feedback.className = 'feedback feedback-err';
+      feedback.textContent = 'Could not reach server';
+    }
+
+    setTimeout(() => { feedback.textContent = ''; }, 3000);
+  }
+
+  async function cancelRequest(pid) {
+    try {
+      const res = await fetch('/api/elevator/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passenger_id: pid }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        myRequests.delete(pid);
+        renderHistory();
+      } else {
+        alert(json.message || 'Could not cancel');
+      }
+    } catch (_) {
+      alert('Could not reach server');
+    }
+  }
+
+  // Poll sim state to update statuses of our requests
+  async function pollStatuses() {
+    if (myRequests.size === 0) return;
+    try {
+      const res = await fetch('/api/elevator/state');
+      if (!res.ok) return;
+      const json = await res.json();
+      const state = json.state;
+
+      // Build a pid -> status map from the current state
+      const statusMap = new Map();
+      for (const [floor, list] of Object.entries(state.waiting)) {
+        for (const p of list) statusMap.set(p.passenger_id, p.status);
+      }
+      for (const elev of state.elevators) {
+        for (const p of elev.passengers) statusMap.set(p.passenger_id, p.status);
+      }
+
+      let changed = false;
+      for (const [pid, info] of myRequests.entries()) {
+        const newStatus = statusMap.get(pid) || info.status;
+        if (newStatus !== info.status) {
+          info.status = newStatus;
+          changed = true;
+        }
+        // If a passenger is no longer in state at all and was last seen as arrived, mark arrived
+        if (!statusMap.has(pid) && !info.status) {
+          info.status = 'arrived';
+          changed = true;
+        }
+      }
+
+      if (changed) renderHistory();
+    } catch (_) {}
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    if (myRequests.size === 0) {
+      list.innerHTML = '<span class="history-empty">No requests yet</span>';
+      return;
+    }
+
+    let html = '';
+    for (const [pid, info] of [...myRequests.entries()].reverse()) {
+      const status = info.status || 'waiting';
+      const statusClass = STATUS_CLASS[status] || '';
+      const canCancel = status === 'waiting';
+      html += `
+        <div class="history-item">
+          <span class="pid">P${pid}</span>
+          <span class="route">Floor <span>${info.from}</span> → <span>${info.to}</span></span>
+          <span class="status-badge ${statusClass}">${status}</span>
+          ${canCancel
+            ? `<button class="cancel-btn" onclick="cancelRequest(${pid})">cancel</button>`
+            : '<span style="width:46px"></span>'}
+        </div>`;
+    }
+    list.innerHTML = html;
+  }
+
+  initFloorRange();
+  setInterval(pollStatuses, 800);
+</script>
+</body>
+</html>

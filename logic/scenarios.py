@@ -8,10 +8,11 @@ from visualizer import Visualizer
 
 def run(building_name, floors, num_elevators, passengers, tick_rate=1.0, max_ticks=None):
     building = Building(building_name, floors=floors, num_elevators=num_elevators, pending_requests=[])
-    for p in passengers:
-        building.add_request(p)
     sim = Simulation(building, tick_rate=tick_rate)
-    viz = Visualizer(sim, passengers)
+    for p in passengers:
+        sim.add_request(p.current_floor, p.destination_floor, p.access_level)
+    sim.start_background()
+    viz = Visualizer(sim)
     viz.run(max_ticks=max_ticks)
 
 

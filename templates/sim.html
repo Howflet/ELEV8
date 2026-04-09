@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELEV8 Simulator</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --dim: #7d8590;
+      --blue: #58a6ff;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --cyan: #39c5cf;
+      --orange: #f78166;
+      --elev-bg: #1c2128;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Consolas', 'Cascadia Code', 'SF Mono', monospace;
+      font-size: 13px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    header h1 {
+      font-size: 16px;
+      color: var(--blue);
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    .tick-badge {
+      background: var(--elev-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 10px;
+      color: var(--dim);
+      font-size: 12px;
+    }
+
+    .tick-badge span { color: var(--text); }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--dim);
+      transition: background 0.3s;
+    }
+    .status-dot.live { background: var(--green); animation: pulse 1.4s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .nav-link {
+      margin-left: auto;
+      color: var(--dim);
+      text-decoration: none;
+      font-size: 12px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .nav-link:hover { color: var(--text); border-color: var(--dim); }
+
+    main {
+      display: flex;
+      flex: 1;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* ── Building panel ── */
+    .building-panel {
+      flex: 0 0 auto;
+      min-width: 340px;
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .panel-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--dim);
+      margin-bottom: 12px;
+    }
+
+    #building-grid {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    #building-grid th {
+      color: var(--dim);
+      font-size: 11px;
+      padding: 4px 8px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #building-grid th:first-child { text-align: right; }
+
+    #building-grid td {
+      padding: 3px 8px;
+      text-align: center;
+      border-bottom: 1px solid #1c2128;
+      white-space: nowrap;
+      height: 34px;
+      vertical-align: middle;
+    }
+
+    #building-grid td:first-child {
+      text-align: right;
+      color: var(--dim);
+      font-size: 11px;
+      width: 40px;
+    }
+
+    #building-grid td:last-child {
+      text-align: left;
+      color: var(--yellow);
+      font-size: 11px;
+    }
+
+    .floor-row:hover { background: #1c2128; }
+
+    .elevator-car {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .elevator-car.up    { background: #1a2f3a; border: 1px solid #58a6ff55; color: var(--blue); }
+    .elevator-car.down  { background: #2f1a1a; border: 1px solid #f7816655; color: var(--orange); }
+    .elevator-car.idle  { background: #1f3a2f; border: 1px solid #3fb95055; color: var(--green); }
+
+    .elevator-car .pax-count {
+      font-size: 10px;
+      opacity: 0.7;
+    }
+
+    .dest-dot {
+      color: var(--yellow);
+      opacity: 0.5;
+      font-size: 10px;
+    }
+
+    /* ── Right side panels ── */
+    .side-panels {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel {
+      border-bottom: 1px solid var(--border);
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .panel:last-child { border-bottom: none; }
+
+    /* Passengers */
+    .passengers-panel { flex: 0 0 auto; max-height: 280px; }
+
+    #passenger-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    #passenger-table th {
+      color: var(--dim);
+      font-size: 11px;
+      text-align: left;
+      padding: 4px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #passenger-table td {
+      padding: 4px 10px;
+      border-bottom: 1px solid #1c2128;
+      font-size: 12px;
+    }
+
+    #passenger-table tr:hover td { background: #1c2128; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .status-waiting  { background: #d2992222; color: var(--yellow); border: 1px solid #d2992244; }
+    .status-boarding { background: #3fb95022; color: var(--green);  border: 1px solid #3fb95044; }
+    .status-riding   { background: #39c5cf22; color: var(--cyan);   border: 1px solid #39c5cf44; }
+    .status-leaving  { background: #f7816622; color: var(--orange); border: 1px solid #f7816644; }
+    .status-arrived  { background: #3fb95011; color: #7ee787;       border: 1px solid #3fb95033; }
+
+    /* Event log */
+    .log-panel { flex: 1; min-height: 120px; }
+
+    #event-log {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .log-entry {
+      font-size: 11px;
+      color: var(--dim);
+      padding: 2px 0;
+      border-bottom: 1px solid #1c212833;
+      animation: fadein 0.3s ease;
+    }
+
+    .log-entry:first-child { color: var(--text); }
+
+    @keyframes fadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+
+    .log-empty { color: var(--border); font-style: italic; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>ELEV8</h1>
+  <div class="tick-badge">Tick&nbsp;<span id="tick-count">—</span></div>
+  <div class="status-dot" id="status-dot"></div>
+  <span id="connection-label" style="font-size:11px;color:var(--dim)">connecting…</span>
+  <a href="/client" class="nav-link">Client Panel →</a>
+</header>
+
+<main>
+  <!-- Building visualization -->
+  <div class="building-panel">
+    <div class="panel-title" id="building-name">Building</div>
+    <table id="building-grid">
+      <thead id="building-head"></thead>
+      <tbody id="building-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Right panels -->
+  <div class="side-panels">
+
+    <!-- Passengers -->
+    <div class="panel passengers-panel">
+      <div class="panel-title">Passengers</div>
+      <table id="passenger-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="passenger-body">
+          <tr><td colspan="4" style="color:var(--dim);font-size:11px;padding:8px 10px">No passengers yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Event log -->
+    <div class="panel log-panel">
+      <div class="panel-title">Event Log</div>
+      <div id="event-log"><span class="log-empty">No events yet</span></div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+  let numElevators = 0;
+  let numFloors = 0;
+
+  const DIRECTION_ARROW = { UP: '▲', DOWN: '▼', IDLE: '■' };
+  const STATUS_CLASS = {
+    waiting:  'status-waiting',
+    boarding: 'status-boarding',
+    riding:   'status-riding',
+    leaving:  'status-leaving',
+    arrived:  'status-arrived',
+  };
+
+  async function fetchState() {
+    try {
+      const res = await fetch('/api/elevator/state');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+      applyState(json.state);
+      setConnected(true);
+    } catch (e) {
+      setConnected(false);
+    }
+  }
+
+  function setConnected(ok) {
+    const dot = document.getElementById('status-dot');
+    const label = document.getElementById('connection-label');
+    if (ok) {
+      dot.className = 'status-dot live';
+      label.textContent = 'live';
+    } else {
+      dot.className = 'status-dot';
+      label.textContent = 'disconnected';
+    }
+  }
+
+  function applyState(state) {
+    document.getElementById('tick-count').textContent = state.tick;
+
+    const floors = state.floors;
+    const elevators = state.elevators;
+
+    if (elevators.length !== numElevators || floors !== numFloors) {
+      numElevators = elevators.length;
+      numFloors = floors;
+      buildHeaders(elevators);
+    }
+
+    renderBuilding(state);
+    renderPassengers(state);
+    renderLog(state.log || []);
+  }
+
+  function buildHeaders(elevators) {
+    const head = document.getElementById('building-head');
+    let html = '<tr><th>Floor</th>';
+    for (const e of elevators) html += `<th>Elev ${e.elevator_id}</th>`;
+    html += '<th>Waiting</th></tr>';
+    head.innerHTML = html;
+  }
+
+  function renderBuilding(state) {
+    const { floors, elevators, waiting } = state;
+    const body = document.getElementById('building-body');
+    let html = '';
+
+    for (let f = floors - 1; f >= 0; f--) {
+      html += `<tr class="floor-row"><td>${f}</td>`;
+
+      for (const elev of elevators) {
+        if (elev.current_floor === f) {
+          const dir = elev.direction;
+          const arrow = DIRECTION_ARROW[dir] || '■';
+          const pax = elev.passengers.length;
+          const cap = elev.capacity;
+          const cls = dir === 'UP' ? 'up' : dir === 'DOWN' ? 'down' : 'idle';
+          html += `<td><span class="elevator-car ${cls}">${arrow} E${elev.elevator_id} <span class="pax-count">${pax}/${cap}</span></span></td>`;
+        } else if (elev.destination_floors.includes(f)) {
+          html += `<td><span class="dest-dot">◦</span></td>`;
+        } else {
+          html += `<td></td>`;
+        }
+      }
+
+      const waitList = waiting[String(f)] || [];
+      if (waitList.length > 0) {
+        const paxStrs = waitList.map(p => `P${p.passenger_id}→${p.destination_floor}`).join('  ');
+        html += `<td>${paxStrs}</td>`;
+      } else {
+        html += `<td></td>`;
+      }
+
+      html += '</tr>';
+    }
+
+    body.innerHTML = html;
+  }
+
+  function renderPassengers(state) {
+    const allPassengers = new Map();
+
+    for (const [floor, list] of Object.entries(state.waiting)) {
+      for (const p of list) allPassengers.set(p.passenger_id, { ...p, from: parseInt(floor) });
+    }
+
+    for (const elev of state.elevators) {
+      for (const p of elev.passengers) {
+        if (!allPassengers.has(p.passenger_id)) {
+          allPassengers.set(p.passenger_id, { ...p, from: '?' });
+        }
+      }
+    }
+
+    const body = document.getElementById('passenger-body');
+    if (allPassengers.size === 0) {
+      body.innerHTML = '<tr><td colspan="4" style="color:var(--dim);font-size:11px;padding:8px 10px">No active passengers</td></tr>';
+      return;
+    }
+
+    let html = '';
+    for (const [id, p] of [...allPassengers.entries()].sort((a, b) => a[0] - b[0])) {
+      const statusClass = STATUS_CLASS[p.status] || '';
+      html += `<tr>
+        <td>P${p.passenger_id}</td>
+        <td style="color:var(--dim)">${p.from}</td>
+        <td style="color:var(--dim)">${p.destination_floor}</td>
+        <td><span class="status-badge ${statusClass}">${p.status}</span></td>
+      </tr>`;
+    }
+    body.innerHTML = html;
+  }
+
+  let _lastLogKey = null;
+
+  function renderLog(lines) {
+    const el = document.getElementById('event-log');
+    if (!lines || lines.length === 0) {
+      if (_lastLogKey !== '') {
+        el.innerHTML = '<span class="log-empty">No events yet</span>';
+        _lastLogKey = '';
+      }
+      return;
+    }
+    const key = lines.join('\x00');
+    if (key === _lastLogKey) return;
+    _lastLogKey = key;
+    el.innerHTML = [...lines].reverse()
+      .map(l => `<div class="log-entry">${escapeHtml(l)}</div>`)
+      .join('');
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  fetchState();
+  setInterval(fetchState, 500);
+</script>
+</body>
+</html>
