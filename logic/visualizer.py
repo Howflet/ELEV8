@@ -111,7 +111,7 @@ class Visualizer:
                 if max_ticks and self.sim.tick_count >= max_ticks:
                     self.sim.running = False
                     break
-                time.sleep(self.sim.tick_rate)
+                time.sleep(self.sim.seconds_per_floor)
 
         self.console.print(
             f"\n[bold green]Simulation complete — {self.sim.tick_count} ticks.[/bold green]"

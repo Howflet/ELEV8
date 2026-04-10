@@ -6,9 +6,9 @@ from simulation import Simulation
 from visualizer import Visualizer
 
 
-def run(building_name, floors, num_elevators, passengers, tick_rate=1.0, max_ticks=None):
+def run(building_name, floors, num_elevators, passengers, seconds_per_floor=1.0, max_ticks=None):
     building = Building(building_name, floors=floors, num_elevators=num_elevators, pending_requests=[])
-    sim = Simulation(building, tick_rate=tick_rate)
+    sim = Simulation(building, seconds_per_floor=seconds_per_floor)
     for p in passengers:
         sim.add_request(p.current_floor, p.destination_floor, p.access_level)
     sim.start_background()
@@ -101,7 +101,7 @@ def scenario_midday():
         floors=floors,
         num_elevators=8,
         passengers=passengers,
-        tick_rate=0.5,
+        seconds_per_floor=0.5,
     )
 
 

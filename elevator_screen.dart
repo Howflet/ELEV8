@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../service/api_service.dart';
-import '../screens/login_screen.dart';
 
 class ElevatorScreen extends StatefulWidget {
   const ElevatorScreen({super.key});
@@ -95,14 +94,5 @@ class _ElevatorScreenState extends State<ElevatorScreen> {
                   },
                   child: Text("Submit Request")),
 
-            const SizedBox(height:30),
-
-            ElevatedButton(
-              onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => LoginScreen()));
-              },
-              child: Text("Logout"))
           ]
         ));}}

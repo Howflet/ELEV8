@@ -1,4 +1,5 @@
 from enum import Enum
+from datetime import datetime, timezone
 
 class Direction(Enum):
     UP = 1
@@ -19,6 +20,7 @@ class Elevator:
         self.door = Door.CLOSED
         self.destination_floor = []
         self.last_stopped_floor = None
+        self.dwell_ticks_remaining = 0
 
     def tick(self):
         self.last_stopped_floor = None
@@ -26,9 +28,16 @@ class Elevator:
             self.direction = Direction.IDLE
             return
 
-        # Set direction if idle
+        # If already at a destination, stop here immediately (avoids wrong-direction initialization)
+        if self.current_floor in self.destination_floor:
+            self.destination_floor.remove(self.current_floor)
+            self.last_stopped_floor = self.current_floor
+            self.stop_at_floor()
+            return
+
+        # Set direction if idle — go toward the nearest destination first (LOOK)
         if self.direction == Direction.IDLE:
-            target = self.destination_floor[0]
+            target = min(self.destination_floor, key=lambda f: abs(f - self.current_floor))
             self.direction = Direction.UP if target > self.current_floor else Direction.DOWN
 
         next_dest = self.get_next_destination()
@@ -41,21 +50,14 @@ class Elevator:
                 self.direction = Direction.IDLE
                 return
 
-        if self.current_floor == next_dest:
-            self.destination_floor.remove(self.current_floor)
-            self.last_stopped_floor = self.current_floor
-            self.stop_at_floor()
-            self.open_doors()
-            self.close_doors()
-        else:
-            self.move()
+        self.move()
 
     def move(self):
         self.current_floor += self.direction.value
-        print(f"Elevator {self.elevator_id} moving {self.direction.name} — now at floor {self.current_floor}")
+        print(f"Elevator {self.elevator_id} moving {self.direction.name} — now at floor {self.current_floor + 1}")
 
     def stop_at_floor(self):
-        print(f"Elevator {self.elevator_id} stopped at floor {self.current_floor}")
+        print(f"Elevator {self.elevator_id} stopped at floor {self.current_floor + 1}")
 
     def open_doors(self):
         self.door = Door.OPEN
@@ -69,15 +71,17 @@ class Elevator:
         for p in passengers:
             self.current_passengers.append(p)
             p.status = "boarding"
+            p.boarded_at = datetime.now(timezone.utc).isoformat()
             self.add_destination(p.destination_floor)
-            print(f"Passenger {p.passenger_id} boarded Elevator {self.elevator_id} at floor {self.current_floor}")
+            print(f"Passenger {p.passenger_id} boarded Elevator {self.elevator_id} at floor {self.current_floor + 1}")
 
     def alight(self, floor):
         alighting = [p for p in self.current_passengers if p.destination_floor == floor]
         for p in alighting:
             self.current_passengers.remove(p)
             p.status = "leaving"
-            print(f"Passenger {p.passenger_id} exited Elevator {self.elevator_id} at floor {floor}")
+            p.arrived_at = datetime.now(timezone.utc).isoformat()
+            print(f"Passenger {p.passenger_id} exited Elevator {self.elevator_id} at floor {floor + 1}")
 
     def atDestination(self):
         return self.current_floor in self.destination_floor

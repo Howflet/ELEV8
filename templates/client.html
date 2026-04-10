@@ -10,7 +10,7 @@
       --surface: #161b22;
       --border: #30363d;
       --text: #e6edf3;
-      --dim: #7d8590;
+      --dim: #8b949e;
       --blue: #58a6ff;
       --green: #3fb950;
       --yellow: #d29922;
@@ -25,7 +25,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: 'Consolas', 'Cascadia Code', 'SF Mono', monospace;
-      font-size: 13px;
+      font-size: 14px;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -83,7 +83,7 @@
     }
 
     .card-title {
-      font-size: 11px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 1px;
       color: var(--dim);
@@ -98,7 +98,7 @@
     }
 
     .form-group label {
-      font-size: 11px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 1px;
       color: var(--dim);
@@ -153,19 +153,30 @@
     .history-list {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
 
     .history-item {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      flex-direction: column;
+      gap: 4px;
       background: var(--elev-bg);
       border: 1px solid var(--border);
       border-radius: 4px;
-      padding: 8px 12px;
+      padding: 10px 14px;
       font-size: 12px;
       animation: fadein 0.25s ease;
+    }
+
+    .history-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .eta-info {
+      font-size: 12px;
+      color: var(--dim);
     }
 
     @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
@@ -176,9 +187,9 @@
 
     .status-badge {
       display: inline-block;
-      padding: 1px 7px;
+      padding: 2px 8px;
       border-radius: 10px;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
     }
 
@@ -186,7 +197,7 @@
     .status-boarding { background: #3fb95022; color: var(--green);  border: 1px solid #3fb95044; }
     .status-riding   { background: #39c5cf22; color: var(--cyan);   border: 1px solid #39c5cf44; }
     .status-leaving  { background: #f7816622; color: var(--orange); border: 1px solid #f7816644; }
-    .status-arrived  { background: #3fb95011; color: #7ee787;       border: 1px solid #3fb95033; }
+    .status-complete { background: #3fb95011; color: #7ee787;       border: 1px solid #3fb95033; }
 
     .cancel-btn {
       background: none;
@@ -194,8 +205,8 @@
       border-radius: 3px;
       color: var(--dim);
       font-family: inherit;
-      font-size: 11px;
-      padding: 2px 8px;
+      font-size: 12px;
+      padding: 3px 10px;
       cursor: pointer;
       transition: color 0.15s, border-color 0.15s;
     }
@@ -209,7 +220,6 @@
 <header>
   <h1>ELEV8</h1>
   <span class="page-label">Client Panel</span>
-  <a href="/sim" class="nav-link">← Simulator</a>
 </header>
 
 <main>
@@ -220,11 +230,11 @@
     <form id="request-form" onsubmit="submitRequest(event)">
       <div class="form-group">
         <label>From Floor</label>
-        <input type="number" id="from-floor" min="0" value="0" required>
+        <select id="from-floor" required></select>
       </div>
       <div class="form-group">
         <label>To Floor</label>
-        <input type="number" id="to-floor" min="0" value="5" required>
+        <select id="to-floor" required></select>
       </div>
       <div class="form-group">
         <label>Access Level</label>
@@ -250,7 +260,7 @@
 </main>
 
 <script>
-  // Track passenger IDs submitted from this page: pid -> { from, to }
+  // Track passenger IDs submitted from this page: pid -> { from, to, status, eta }
   const myRequests = new Map();
 
   const STATUS_CLASS = {
@@ -258,18 +268,61 @@
     boarding: 'status-boarding',
     riding:   'status-riding',
     leaving:  'status-leaving',
-    arrived:  'status-arrived',
+    arrived:  'status-complete',
   };
 
-  // Populate floor input max from sim state once
+  const STATUS_LABEL = {
+    arrived: 'complete',
+  };
+
+  const DIR_ARROW = { UP: '↑', DOWN: '↓', IDLE: '·' };
+
+  let _knownFloors = 0;
+  let _tickRate = 1.0;
+  let _lastRenderKey = '';
+
+  function buildFloorOptions(floors) {
+    if (floors === _knownFloors) return;
+    _knownFloors = floors;
+    const fromSel = document.getElementById('from-floor');
+    const toSel   = document.getElementById('to-floor');
+    const prevFrom = parseInt(fromSel.value) || 0;
+    const prevTo   = parseInt(toSel.value)   || Math.max(floors - 1, 1);
+    let fromHtml = '', toHtml = '';
+    for (let f = 0; f < floors; f++) {
+      fromHtml += `<option value="${f}"${f === Math.min(prevFrom, floors - 1) ? ' selected' : ''}>Floor ${f + 1}</option>`;
+      toHtml   += `<option value="${f}"${f === Math.min(prevTo,   floors - 1) ? ' selected' : ''}>Floor ${f + 1}</option>`;
+    }
+    fromSel.innerHTML = fromHtml;
+    toSel.innerHTML   = toHtml;
+  }
+
+  // Estimate floor-hops for an elevator to reach targetFloor using the LOOK algorithm
+  function estimateTicksToFloor(elev, targetFloor) {
+    const current = elev.current_floor;
+    const dir = elev.direction;
+    const dests = elev.destination_floors;
+    if (current === targetFloor) return 0;
+    if (dir === 'IDLE' || dests.length === 0) return Math.abs(current - targetFloor);
+    const top = Math.max(...dests);
+    const bottom = Math.min(...dests);
+    if (dir === 'UP') {
+      return targetFloor >= current
+        ? targetFloor - current
+        : (top - current) + (top - targetFloor);
+    } else {
+      return targetFloor <= current
+        ? current - targetFloor
+        : (current - bottom) + (targetFloor - bottom);
+    }
+  }
+
   async function initFloorRange() {
     try {
       const res = await fetch('/api/elevator/state');
       if (!res.ok) return;
       const json = await res.json();
-      const max = json.state.floors - 1;
-      document.getElementById('from-floor').max = max;
-      document.getElementById('to-floor').max = max;
+      buildFloorOptions(json.state.floors);
     } catch (_) {}
   }
 
@@ -291,6 +344,7 @@
         feedback.className = 'feedback feedback-ok';
         feedback.textContent = `Queued — Passenger ID: ${json.passenger_id}`;
         myRequests.set(json.passenger_id, { from: fromFloor, to: toFloor });
+        _lastRenderKey = '';
         renderHistory();
       } else {
         feedback.className = 'feedback feedback-err';
@@ -314,6 +368,7 @@
       const json = await res.json();
       if (res.ok) {
         myRequests.delete(pid);
+        _lastRenderKey = '';
         renderHistory();
       } else {
         alert(json.message || 'Could not cancel');
@@ -323,40 +378,107 @@
     }
   }
 
-  // Poll sim state to update statuses of our requests
+  // Poll sim state to update statuses and ETA of our requests
   async function pollStatuses() {
-    if (myRequests.size === 0) return;
     try {
       const res = await fetch('/api/elevator/state');
       if (!res.ok) return;
       const json = await res.json();
       const state = json.state;
+      buildFloorOptions(state.floors);
+      _tickRate = state.seconds_per_floor || 1.0;
+      if (myRequests.size === 0) return;
 
-      // Build a pid -> status map from the current state
+      // Build pid -> status map
       const statusMap = new Map();
-      for (const [floor, list] of Object.entries(state.waiting)) {
+      for (const [, list] of Object.entries(state.waiting)) {
         for (const p of list) statusMap.set(p.passenger_id, p.status);
       }
       for (const elev of state.elevators) {
         for (const p of elev.passengers) statusMap.set(p.passenger_id, p.status);
       }
 
-      let changed = false;
-      for (const [pid, info] of myRequests.entries()) {
-        const newStatus = statusMap.get(pid) || info.status;
-        if (newStatus !== info.status) {
-          info.status = newStatus;
-          changed = true;
+      // Build pid -> ETA for waiting passengers (prefer elevators already assigned to that floor)
+      const waitingEtaMap = new Map();
+      for (const [floorStr, list] of Object.entries(state.waiting)) {
+        const floor = parseInt(floorStr);
+        let candidates = state.elevators.filter(e => e.destination_floors.includes(floor));
+        if (candidates.length === 0) candidates = state.elevators.slice();
+        if (candidates.length === 0) continue;
+        let bestElev = candidates[0];
+        let bestTicks = estimateTicksToFloor(candidates[0], floor);
+        for (const elev of candidates.slice(1)) {
+          const t = estimateTicksToFloor(elev, floor);
+          if (t < bestTicks) { bestTicks = t; bestElev = elev; }
         }
-        // If a passenger is no longer in state at all and was last seen as arrived, mark arrived
-        if (!statusMap.has(pid) && !info.status) {
-          info.status = 'arrived';
-          changed = true;
+        const etaInfo = {
+          type: 'waiting',
+          eta_ticks: bestTicks,
+          elevator_id: bestElev.elevator_id,
+          elevator_floor: bestElev.current_floor,
+          elevator_dir: bestElev.direction,
+        };
+        for (const p of list) waitingEtaMap.set(p.passenger_id, etaInfo);
+      }
+
+      // Build pid -> ETA for riding passengers
+      const ridingEtaMap = new Map();
+      for (const elev of state.elevators) {
+        for (const p of elev.passengers) {
+          ridingEtaMap.set(p.passenger_id, {
+            type: 'riding',
+            eta_ticks: estimateTicksToFloor(elev, p.destination_floor),
+            elevator_id: elev.elevator_id,
+            elevator_floor: elev.current_floor,
+            elevator_dir: elev.direction,
+          });
         }
       }
 
-      if (changed) renderHistory();
+      for (const [pid, info] of myRequests.entries()) {
+        const newStatus = statusMap.get(pid) || info.status;
+        if (newStatus !== info.status) info.status = newStatus;
+        if (!statusMap.has(pid)) info.status = 'arrived';
+        if (waitingEtaMap.has(pid)) {
+          info.eta = waitingEtaMap.get(pid);
+        } else if (ridingEtaMap.has(pid)) {
+          info.eta = ridingEtaMap.get(pid);
+        } else {
+          info.eta = null;
+        }
+      }
+
+      const renderKey = [...myRequests.entries()]
+        .map(([pid, info]) => {
+          const eta = info.eta;
+          const etaStr = eta
+            ? `${eta.type}:${eta.eta_ticks}:${eta.elevator_floor}:${eta.elevator_dir}`
+            : 'null';
+          return `${pid}:${info.status}:${etaStr}`;
+        }).join('|');
+
+      if (renderKey !== _lastRenderKey) {
+        _lastRenderKey = renderKey;
+        renderHistory();
+      }
     } catch (_) {}
+  }
+
+  function formatEtaLine(info) {
+    const eta = info.eta;
+    if (!eta) return '';
+    const arrow = DIR_ARROW[eta.elevator_dir] || '';
+    const liftNum = eta.elevator_id + 1;
+    const floorNum = eta.elevator_floor + 1;
+    const secs = Math.round(eta.eta_ticks * _tickRate);
+    const timeStr = secs <= 0 ? 'now' : `~${secs}s`;
+    if (eta.type === 'waiting') {
+      return `Lift ${liftNum} on Floor ${floorNum} ${arrow} — arriving ${timeStr}`;
+    }
+    if (eta.type === 'riding') {
+      return `On Lift ${liftNum} · Floor ${floorNum} ${arrow} — ${timeStr} to destination`;
+    }
+    return '';
   }
 
   function renderHistory() {
@@ -370,15 +492,20 @@
     for (const [pid, info] of [...myRequests.entries()].reverse()) {
       const status = info.status || 'waiting';
       const statusClass = STATUS_CLASS[status] || '';
+      const statusLabel = STATUS_LABEL[status] || status;
       const canCancel = status === 'waiting';
+      const etaLine = formatEtaLine(info);
       html += `
         <div class="history-item">
-          <span class="pid">P${pid}</span>
-          <span class="route">Floor <span>${info.from}</span> → <span>${info.to}</span></span>
-          <span class="status-badge ${statusClass}">${status}</span>
-          ${canCancel
-            ? `<button class="cancel-btn" onclick="cancelRequest(${pid})">cancel</button>`
-            : '<span style="width:46px"></span>'}
+          <div class="history-row">
+            <span class="pid">P${pid}</span>
+            <span class="route">Floor <span>${info.from + 1}</span> → <span>${info.to + 1}</span></span>
+            <span class="status-badge ${statusClass}">${statusLabel}</span>
+            ${canCancel
+              ? `<button class="cancel-btn" onclick="cancelRequest(${pid})">cancel</button>`
+              : '<span style="width:46px"></span>'}
+          </div>
+          ${etaLine ? `<div class="eta-info">${etaLine}</div>` : ''}
         </div>`;
     }
     list.innerHTML = html;

@@ -8,6 +8,8 @@ class Passenger:
         self.access_level = access_level
         self.direction = Direction.UP if destination_floor > current_floor else Direction.DOWN
         self.status = "waiting"
+        self.boarded_at = None   # ISO timestamp — set when passenger enters an elevator
+        self.arrived_at = None   # ISO timestamp — set when passenger exits at destination
 
     def __str__(self):
         return f"Passenger {self.passenger_id} at floor {self.current_floor} going to floor {self.destination_floor}"
